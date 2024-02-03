@@ -22,7 +22,6 @@ module {
     let RETRY_EVERY_SEC:Float = 60;
 
     type TransactionInput = {
-        id : Nat64;
         amount: Nat;
         to: Ledger.Account;
         from_subaccount : ?Blob;
@@ -122,8 +121,12 @@ module {
             onConfirmations(Vector.toArray(confirmations));
         };
 
+        public func get_fee() :  Nat {
+            let ?fee = stored_fee else Debug.trap("Fee not available");
+            return fee;
+        };
+
         public func send(id:Nat64, tx: TransactionInput) {
-   
             let txr : Transaction = {
                 amount = tx.amount;
                 to = tx.to;
