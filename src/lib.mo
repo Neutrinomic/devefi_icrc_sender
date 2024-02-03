@@ -40,17 +40,18 @@ module {
     public type Mem = {
         transactions : BTree.BTree<Nat64, Transaction>;
         var started : Bool;
+        var stored_owner : ?Principal;
     };
 
     public func Mem() : Mem {
         return {
             transactions = BTree.init<Nat64, Transaction>(?16);
             var started = false;
+            var stored_owner = null;
         };
     };
 
     public class Sender({
-        owner: Principal;
         mem : Mem;
         ledger_id: Principal;
         onError: (Text) -> ();
@@ -64,6 +65,7 @@ module {
         var stored_fee:?Nat = null;
 
         private func cycle() : async () {
+            let ?owner = mem.stored_owner else return;
             if (not mem.started) return;
             let inst_start = Prim.performanceCounter(1); // 1 is preserving with async
 
@@ -105,6 +107,8 @@ module {
         };
 
         public func confirm(txs: [Ledger.Transaction]) {
+            let ?owner = mem.stored_owner else return;
+
             let confirmations = Vector.new<Nat64>();
             label tloop for (tx in txs.vals()) {
                 let ?tr = tx.transfer else continue tloop;
@@ -132,7 +136,8 @@ module {
             ignore BTree.insert<Nat64, Transaction>(mem.transactions, Nat64.compare, id, txr);
         };
 
-        public func start() {
+        public func start(owner:Principal) {
+            mem.stored_owner := ?owner;
             mem.started := true;
             ignore Timer.setTimer(#seconds 2, cycle);
         };
