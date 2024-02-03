@@ -1,0 +1,11 @@
+[package]
+name = "devefi-icrc-sender"
+version = "1.0.0"
+description = "Sends ledger transactions"
+repository = ""
+keywords = [ ]
+license = "MIT"
+
+[dependencies]
+vector = "0.2.0"
+stableheapbtreemap = "1.5.0"
