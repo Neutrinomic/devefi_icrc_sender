@@ -121,7 +121,7 @@ module {
             onConfirmations(Vector.toArray(confirmations));
         };
 
-        public func get_fee() :  Nat {
+        public func get_fee() : Nat {
             let ?fee = stored_fee else Debug.trap("Fee not available");
             return fee;
         };

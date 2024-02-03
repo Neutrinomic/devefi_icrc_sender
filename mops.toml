@@ -1,6 +1,6 @@
 [package]
 name = "devefi-icrc-sender"
-version = "1.0.2"
+version = "1.0.3"
 description = "Sends ledger transactions"
 repository = "https://github.com/Neutrinomic/devefi_icrc_sender"
 keywords = [ ]
