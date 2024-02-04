@@ -21,13 +21,13 @@ module {
 
     let RETRY_EVERY_SEC:Float = 60;
 
-    type TransactionInput = {
+    public type TransactionInput = {
         amount: Nat;
         to: Ledger.Account;
         from_subaccount : ?Blob;
     };
 
-    type Transaction = {
+    public type Transaction = {
         amount: Nat;
         to : Ledger.Account;
         from_subaccount : ?Blob;
