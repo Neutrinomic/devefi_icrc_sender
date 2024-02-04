@@ -20,6 +20,7 @@ import Nat8 "mo:base/Nat8";
 module {
 
     let RETRY_EVERY_SEC:Float = 60;
+    let MAX_SENT_EACH_CYCLE:Nat = 100;
 
     public type TransactionInput = {
         amount: Nat;
@@ -75,11 +76,11 @@ module {
 
             let now = Int.abs(Time.now());
   
-            let transactions_to_send = BTree.scanLimit<Nat64, Transaction>(mem.transactions, Nat64.compare, 0, ^0, #fwd, 500);
+            let transactions_to_send = BTree.scanLimit<Nat64, Transaction>(mem.transactions, Nat64.compare, 0, ^0, #fwd, 2000);
 
+            var sent_count = 0;
             label vtransactions for ((id, tx) in transactions_to_send.results.vals()) {
                 
-                    // Retry every 30 seconds
                     let time_for_try = Float.toInt(Float.ceil((Float.fromInt(now - Nat64.toNat(tx.created_at_time)))/RETRY_EVERY_SEC));
 
                     if (tx.tries >= time_for_try) continue vtransactions;
@@ -95,9 +96,13 @@ module {
                             memo = ?tx.memo;
                             fee = ?fee;
                         });
+                        sent_count += 1;
                     } catch (e) { 
                         onError("sender:" # Error.message(e));
                     };
+
+                    if (sent_count >= MAX_SENT_EACH_CYCLE) break vtransactions;
+    
             };
     
             ignore Timer.setTimer(#seconds 5, cycle);
