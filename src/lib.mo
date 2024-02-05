@@ -19,8 +19,8 @@ import Nat8 "mo:base/Nat8";
 
 module {
 
-    let RETRY_EVERY_SEC:Float = 60;
-    let MAX_SENT_EACH_CYCLE:Nat = 100;
+    let RETRY_EVERY_SEC:Float = 120;
+    let MAX_SENT_EACH_CYCLE:Nat = 250;
 
     public type TransactionInput = {
         amount: Nat;
@@ -39,14 +39,12 @@ module {
 
     public type Mem = {
         transactions : BTree.BTree<Nat64, Transaction>;
-        var started : Bool;
         var stored_owner : ?Principal;
     };
 
     public func Mem() : Mem {
         return {
             transactions = BTree.init<Nat64, Transaction>(?16);
-            var started = false;
             var stored_owner = null;
         };
     };
@@ -58,7 +56,7 @@ module {
         onConfirmations : ([Nat64]) -> ();
         onCycleEnd : (Nat64) -> (); // Measure performance of following and processing transactions. Returns instruction count
     }) {
-
+        var started = false;
         let ledger = actor(Principal.toText(ledger_id)) : Ledger.Oneway;
         let ledger_cb = actor(Principal.toText(ledger_id)) : Ledger.Self;
 
@@ -66,7 +64,7 @@ module {
 
         private func cycle() : async () {
             let ?owner = mem.stored_owner else return;
-            if (not mem.started) return;
+            if (not started) return;
             let inst_start = Prim.performanceCounter(1); // 1 is preserving with async
 
             if (Option.isNull(stored_fee)) {
@@ -76,7 +74,7 @@ module {
 
             let now = Int.abs(Time.now());
   
-            let transactions_to_send = BTree.scanLimit<Nat64, Transaction>(mem.transactions, Nat64.compare, 0, ^0, #fwd, 2000);
+            let transactions_to_send = BTree.scanLimit<Nat64, Transaction>(mem.transactions, Nat64.compare, 0, ^0, #fwd, 3000);
 
             var sent_count = 0;
             label vtransactions for ((id, tx) in transactions_to_send.results.vals()) {
@@ -105,7 +103,7 @@ module {
     
             };
     
-            ignore Timer.setTimer(#seconds 5, cycle);
+            ignore Timer.setTimer(#seconds 2, cycle);
             let inst_end = Prim.performanceCounter(1);
             onCycleEnd(inst_end - inst_start);
         };
@@ -126,9 +124,13 @@ module {
             onConfirmations(Vector.toArray(confirmations));
         };
 
-        public func get_fee() : Nat {
+        public func getFee() : Nat {
             let ?fee = stored_fee else Debug.trap("Fee not available");
             return fee;
+        };
+
+        public func getPendingCount() : Nat {
+            return BTree.size(mem.transactions);
         };
 
         public func send(id:Nat64, tx: TransactionInput) {
@@ -144,14 +146,17 @@ module {
             ignore BTree.insert<Nat64, Transaction>(mem.transactions, Nat64.compare, id, txr);
         };
 
-        public func start(owner:Principal) {
-            mem.stored_owner := ?owner;
-            mem.started := true;
+        public func start(owner:?Principal) {
+            if (not Option.isNull(owner)) mem.stored_owner := owner;
+            if (Option.isNull(mem.stored_owner)) return;
+
+            if (started) Debug.trap("already started");
+            started := true;
             ignore Timer.setTimer(#seconds 2, cycle);
         };
 
         public func stop() {
-            mem.started := false;
+            started := false;
         };
 
         public func ENat64(value : Nat64) : [Nat8] {
