@@ -20,7 +20,7 @@ import Nat8 "mo:base/Nat8";
 module {
 
     let RETRY_EVERY_SEC:Float = 120;
-    let MAX_SENT_EACH_CYCLE:Nat = 250;
+    let MAX_SENT_EACH_CYCLE:Nat = 125;
 
     public type TransactionInput = {
         amount: Nat;
@@ -69,7 +69,7 @@ module {
 
             if (Option.isNull(stored_fee)) {
                 stored_fee := ?(await ledger_cb.icrc1_fee());
-            };
+                };
             let ?fee = stored_fee else Debug.trap("Fee not available");
 
             let now = Int.abs(Time.now());
@@ -79,27 +79,28 @@ module {
             var sent_count = 0;
             label vtransactions for ((id, tx) in transactions_to_send.results.vals()) {
                 
-                    let time_for_try = Float.toInt(Float.ceil((Float.fromInt(now - Nat64.toNat(tx.created_at_time)))/RETRY_EVERY_SEC));
+                let time_for_try = Float.toInt(Float.ceil((Float.fromInt(now - Nat64.toNat(tx.created_at_time)))/RETRY_EVERY_SEC));
 
-                    if (tx.tries >= time_for_try) continue vtransactions;
-                    tx.tries += 1;
-    
-                    try {
-                        // Relies on transaction deduplication https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
-                        ledger.icrc1_transfer({
-                            amount = tx.amount - fee;
-                            to = tx.to;
-                            from_subaccount = tx.from_subaccount;
-                            created_at_time = ?tx.created_at_time;
-                            memo = ?tx.memo;
-                            fee = ?fee;
-                        });
-                        sent_count += 1;
-                    } catch (e) { 
-                        onError("sender:" # Error.message(e));
-                    };
+                if (tx.tries >= time_for_try) continue vtransactions;
+                tx.tries += 1;
 
-                    if (sent_count >= MAX_SENT_EACH_CYCLE) break vtransactions;
+                try {
+                    // Relies on transaction deduplication https://github.com/dfinity/ICRC-1/blob/main/standards/ICRC-1/README.md
+                    ledger.icrc1_transfer({
+                        amount = tx.amount - fee;
+                        to = tx.to;
+                        from_subaccount = tx.from_subaccount;
+                        created_at_time = ?tx.created_at_time;
+                        memo = ?tx.memo;
+                        fee = ?fee;
+                    });
+                    sent_count += 1;
+                } catch (e) { 
+                    onError("sender:" # Error.message(e));
+                    break vtransactions;
+                };
+
+                if (sent_count >= MAX_SENT_EACH_CYCLE) break vtransactions;
     
             };
     
